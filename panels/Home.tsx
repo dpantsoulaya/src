@@ -114,6 +114,11 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
       return;
     }
 
+    if (text.length < 5) {
+      showError("Слово должно быть не менее 5 символов");
+      return;
+    }
+
     if (text.length > 30) {
       showError("Слово не должно превышать 30 символов");
       return;
@@ -139,6 +144,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
     setBigWordInput("");
     setInput("");
     setUserWords([]);
+    setHintsCount(0);
     setOpenedBigWordPopuot(false);
   };
   const popoutCancel = () => {
@@ -151,7 +157,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
    * Попаут для ввода своего большого слова
    ***************************************************/
   const bigWordPopout = openedBigWordPopuot ? (
-    <PopoutWrapper>
+    <PopoutWrapper style={{ zIndex: "9" }}>
       <Group>
         <Card style={{ padding: "30px" }}>
           <Title level="3">Задайте своё слово, из которого будут составляться слова</Title>
@@ -226,7 +232,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
   };
 
   /*********************************************
-   * Рестар
+   * Рестарт
    *********************************************/
   const restart = () => {
     // Проверка к готовности рекламы к показу.
@@ -234,7 +240,6 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
 
     setPopout(
       <Alert
-        onClose={closePopout}
         actions={[
           {
             title: "Новое слово",
@@ -262,7 +267,9 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
             mode: "cancel",
           },
         ]}
-        actionsLayout="vertical"
+        onClose={closePopout}
+        actionsAlign="left"
+        actionsLayout="horizontal"
         header="Начать с новым словом?"
         text="Весь текущий прогресс будет потерян. Вы уверены, что хотите начать новую игру?"
       />
@@ -293,6 +300,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
       setBigWordDecomposition(createDecomposition(w));
       setInput("");
       setUserWords([]);
+      setHintsCount(0);
     } else {
       showError("Не удалось получить слово");
     }
@@ -339,7 +347,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
 
     text = text.trim().toUpperCase();
     if (!containsOnlyLetters(text)) {
-      showError("Слово должно содержать только русские буквы");
+      showError("Введены недопустимые символы, допустимы только русские буквы");
       return;
     }
 
@@ -405,8 +413,12 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
                 onInput={(e) => setInput((e.target as HTMLInputElement).value)}></Input>
             </div>
             <div className="enterWordButton">
-              <Tooltip placement="top" text="Добавить слово">
-                <IconButton label="Добавить слово" onClick={() => btnAddWordClicked(input)}>
+              <Tooltip placement="top" text="Добавить слово" hoverDelay={[100, 700]}>
+                <IconButton
+                  label="Добавить слово"
+                  onClick={() => btnAddWordClicked(input)}
+                  hasHover={false}
+                  hasActive={false}>
                   <Icon28AddCircleFillBlue />
                 </IconButton>
               </Tooltip>
@@ -431,15 +443,19 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
         <SplitLayout>
           <SplitCol style={{ textAlign: "center" }}>
             <ButtonGroup className="mobileControls" mode="horizontal">
-              <IconButton onClick={btnHintClicked} className="mobileButton" label="Подсказка">
+              <IconButton onClick={btnHintClicked} className="mobileButton" label="Подсказка" hasHover={false}>
                 <Icon28LightbulbCircleFillYellow />
               </IconButton>
 
-              <IconButton onClick={restart} className="mobileButton" label="Новое слово">
+              <IconButton onClick={restart} className="mobileButton" label="Новое слово" hasHover={false}>
                 <Icon28TextLiveCircleFillGreen />
               </IconButton>
 
-              <IconButton onClick={btnSetBigWordClicked} className="mobileButton" label="Задать своё слово">
+              <IconButton
+                onClick={btnSetBigWordClicked}
+                className="mobileButton"
+                label="Задать своё слово"
+                hasHover={false}>
                 <Icon28EditCircleFillBlue />
               </IconButton>
             </ButtonGroup>
