@@ -3,3 +3,100 @@
   margin: 20px;
   text-align: center;
 }
+
+.enterWordDiv {
+  width: 50%;
+  margin: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.enterWordDiv .enterWordInput {
+  width: 90%;
+}
+
+.desktopControls {
+  display: block;
+  text-align: center;
+}
+
+.foundWordsCard {
+  height: 350px;
+  overflow-y: auto;
+  margin: 10px;
+}
+
+.mobileControls {
+  display: none;
+}
+
+.mobileButton {
+  padding: 10px;
+  border-radius: 50%;
+}
+
+button svg {
+  width: 48px !important;
+  height: 48px !important;
+  margin-top: -14px;
+}
+
+/*********************************************************
+* Для мобильных устройств
+**********************************************************/
+@media (max-width: 629px) {
+  .enterWordDiv {
+    width: 100%;
+  }
+
+  .desktopControls {
+    display: none;
+  }
+
+  .foundWordsCard {
+    height: 320px;
+  }
+
+  .mobileControls {
+    display: flex;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 565px) {
+  .foundWordsCard {
+    height: 500px;
+  }
+}
+
+/**************** Ширина 479 *************************/
+@media (max-width: 479px) {
+  .bigWord {
+    font-size: 22px;
+  }
+
+  .foundWordsCard {
+    height: 500px;
+  }
+
+  .mobileButton {
+    padding: 4px;
+    border-radius: 50%;
+  }
+}
+
+/** Совсем маленькое разрешение  **/
+@media (max-width: 389px) {
+  .bigWord {
+    font-size: 20px;
+  }
+
+  .foundWordsCard {
+    height: 400px;
+  }
+
+  .mobileButton {
+    padding: 1px;
+    border-radius: 50%;
+  }
+}

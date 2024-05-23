@@ -29,7 +29,7 @@ export const App = () => {
     <SplitLayout popout={popout}>
       <SplitCol>
         <View activePanel={activePanel}>
-          <Home id="home" words={words} />
+          <Home id="home" words={words} setPopout={setPopout} />
         </View>
       </SplitCol>
     </SplitLayout>

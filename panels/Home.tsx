@@ -1,7 +1,6 @@
-import { FC, useEffect, useState } from "react";
+import { Dispatch, FC, ReactNode, SetStateAction, useEffect, useState } from "react";
 import {
   Panel,
-  PanelHeader,
   NavIdProps,
   Title,
   Button,
@@ -11,43 +10,86 @@ import {
   Cell,
   Input,
   FormItem,
-  FormLayoutGroup,
   Footer,
   Group,
   Placeholder,
   PopoutWrapper,
   Subhead,
   Snackbar,
-  CardGrid,
   FixedLayout,
-  Caption,
   Div,
+  IconButton,
+  Tooltip,
+  SplitLayout,
+  SplitCol,
+  Alert,
 } from "@vkontakte/vkui";
 
 import "./home.css";
-import { Icon28ErrorCircleOutline } from "@vkontakte/icons";
+import {
+  Icon20ErrorCircleFillYellow,
+  Icon28AddCircleFillBlue,
+  Icon28EditCircleFillBlue,
+  Icon28ErrorCircleOutline,
+  Icon28LightbulbCircleFillYellow,
+  Icon28TextLiveCircleFillGreen,
+} from "@vkontakte/icons";
+import bridge, { EAdsFormats } from "@vkontakte/vk-bridge";
 
 export interface HomeProps extends NavIdProps {
   words: string[];
+  setPopout: Dispatch<SetStateAction<ReactNode | null>>;
 }
 
-export const Home: FC<HomeProps> = ({ id, words }) => {
+export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
   // Кол-во букв в русском языке
   const NUM_OF_LETTERS = 33;
+
+  const STORAGE_KEY_BIGWORD = "big_word";
+  const STORAGE_KEY_WORDS = "words";
 
   const allWords = words;
   const [bigWord, setBigWord] = useState("");
   const [bigWordDecomposition, setBigWordDecomposition] = useState(new Array(NUM_OF_LETTERS));
-  const [errorSnackbar, setErrorSnackbar] = useState<any | null>(null);
+  const [errorSnackbar, setErrorSnackbar] = useState<ReactNode | null>(null);
   const [input, setInput] = useState("");
   const [userWords, setUserWords] = useState<string[]>([]);
   const [hintsCount, setHintsCount] = useState(0);
   const [bigWordInput, setBigWordInput] = useState("");
 
-  // При загрузке страницы сразу отображать новое слово
+  /*************************
+   * Загрузка страницы
+   ************************/
   useEffect(() => {
-    btnNewWordClicked();
+    bridge.send("VKWebAppInit");
+
+    // Загрузить большое слово и придуманные пользователем слова
+    bridge.send("VKWebAppStorageGet", { keys: [STORAGE_KEY_BIGWORD, STORAGE_KEY_WORDS] }).then((data) => {
+      //debugger;
+      if (data.keys) {
+        // Значения получены
+        const readBigWord = data.keys.filter((k) => k.key === STORAGE_KEY_BIGWORD)[0].value;
+        const readUserWords = data.keys.filter((k) => k.key === STORAGE_KEY_WORDS)[0].value;
+
+        if (readBigWord !== "") {
+          setBigWord(readBigWord);
+          setBigWordDecomposition(createDecomposition(readBigWord));
+          setUserWords(JSON.parse(readUserWords));
+        } else {
+          setNewBigWord();
+        }
+      } else {
+        setNewBigWord();
+      }
+    });
   }, [words]);
+
+  /*********************************************
+   * Закрыть всплывающее окно
+   *********************************************/
+  const closePopout = () => {
+    setPopout(null);
+  };
 
   const showError = (text: string) => {
     if (errorSnackbar) return;
@@ -61,7 +103,9 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
     );
   };
 
-  //---------- Попаут для ввода нового большого слова ----------
+  /*************************************************
+   * Попаут для ввода нового большого слова
+   **************************************************/
   const popoutChangeBigWord = () => {
     const text = bigWordInput.trim().toUpperCase();
 
@@ -71,7 +115,7 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
     }
 
     if (text.length > 30) {
-      showError("Слово не должно быть больше 30 символов");
+      showError("Слово не должно превышать 30 символов");
       return;
     }
 
@@ -79,6 +123,16 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
       showError("Слово должно содержать только русские буквы");
       return;
     }
+
+    // Сохранить значение в VkStorage
+    bridge.send("VKWebAppStorageSet", {
+      key: STORAGE_KEY_BIGWORD,
+      value: text,
+    });
+    bridge.send("VKWebAppStorageSet", {
+      key: STORAGE_KEY_WORDS,
+      value: JSON.stringify([]),
+    });
 
     setBigWord(text);
     setBigWordDecomposition(createDecomposition(text));
@@ -92,12 +146,25 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
   };
 
   const [openedBigWordPopuot, setOpenedBigWordPopuot] = useState(false);
+
+  /**************************************************
+   * Попаут для ввода своего большого слова
+   ***************************************************/
   const bigWordPopout = openedBigWordPopuot ? (
     <PopoutWrapper>
       <Group>
         <Card style={{ padding: "30px" }}>
           <Title level="3">Задайте своё слово, из которого будут составляться слова</Title>
-          <Subhead>Допустимо использовать только буквы русского языка</Subhead>
+          <Subhead style={{ margin: "10px", color: "gray" }}>
+            <div style={{ float: "left", marginRight: "20px" }}>
+              <Icon20ErrorCircleFillYellow />
+            </div>
+            <div>
+              Допустимо использовать только буквы русского языка.
+              <br />
+              Прогресс с текущим словом будет потерян.
+            </div>
+          </Subhead>
           <FormItem>
             <Input
               value={bigWordInput}
@@ -107,8 +174,12 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
           </FormItem>
           <FormItem>
             <ButtonGroup>
-              <Button onClick={popoutCancel}>Отмена</Button>
-              <Button onClick={popoutChangeBigWord}>Ок</Button>
+              <Button appearance="neutral" onClick={popoutCancel}>
+                Отмена
+              </Button>
+              <Button appearance="accent" onClick={popoutChangeBigWord}>
+                Ок
+              </Button>
             </ButtonGroup>
           </FormItem>
         </Card>
@@ -154,12 +225,70 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
     return newDecomposition.filter((l, i) => l > bigWordDecomposition[i]).length == 0;
   };
 
-  // Обработка нажатия кнопки "Новое слово"
-  const btnNewWordClicked = () => {
+  /*********************************************
+   * Рестар
+   *********************************************/
+  const restart = () => {
+    // Проверка к готовности рекламы к показу.
+    bridge.send("VKWebAppCheckNativeAds", { ad_format: EAdsFormats.INTERSTITIAL });
+
+    setPopout(
+      <Alert
+        onClose={closePopout}
+        actions={[
+          {
+            title: "Новое слово",
+            mode: "destructive",
+            action: () => {
+              // показать рекламу
+              try {
+                bridge
+                  .send("VKWebAppShowNativeAds", { ad_format: EAdsFormats.INTERSTITIAL })
+                  .then(() => {})
+                  .catch((error) => {
+                    console.log(error); /* Ошибка */
+                  })
+                  .finally(() => {
+                    setNewBigWord();
+                  });
+              } catch (exception) {
+                console.log(exception);
+                setNewBigWord();
+              }
+            },
+          },
+          {
+            title: "Отмена",
+            mode: "cancel",
+          },
+        ]}
+        actionsLayout="vertical"
+        header="Начать с новым словом?"
+        text="Весь текущий прогресс будет потерян. Вы уверены, что хотите начать новую игру?"
+      />
+    );
+
+    return;
+  };
+
+  /*****************************************
+   * Обработка нажатия кнопки "Новое слово"
+   ******************************************/
+  const setNewBigWord = () => {
     if (allWords.length == 0) return;
 
     const w = nextBigWord().toUpperCase();
     if (w != undefined && w != null && w != "") {
+      // Сохранить большое слово в VkStorage
+      bridge.send("VKWebAppStorageSet", {
+        key: STORAGE_KEY_BIGWORD,
+        value: w,
+      });
+      bridge.send("VKWebAppStorageSet", {
+        key: STORAGE_KEY_WORDS,
+        value: JSON.stringify([]),
+      });
+
       setBigWord(w);
       setBigWordDecomposition(createDecomposition(w));
       setInput("");
@@ -173,7 +302,9 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
     return /^[А-ЯЁ]+$/.test(text);
   }
 
-  // Нажатие кнопки "Подсказка"
+  /****************************************
+   * Нажатие кнопки "Подсказка"
+   *****************************************/
   const btnHintClicked = () => {
     const exclude = [...userWords, bigWord];
 
@@ -184,6 +315,12 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
       .sort((a, b) => b.length - a.length)[0];
 
     if (w != undefined) {
+      // Добавить слово в VkStorage
+      bridge.send("VKWebAppStorageSet", {
+        key: STORAGE_KEY_WORDS,
+        value: JSON.stringify([w, ...userWords]),
+      });
+
       setUserWords((prev) => [w, ...prev]);
       setHintsCount((prev) => prev + 1);
     } else {
@@ -191,7 +328,9 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
     }
   };
 
-  // Добавление пользователем слова
+  /************************************
+   * Добавление пользователем слова
+   **************************************/
   const btnAddWordClicked = (text: string) => {
     if (text == null || text == "") {
       showError("Слово-то введите");
@@ -216,6 +355,18 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
       return;
     }
 
+    // Проверить, что такое слово вообще есть
+    if (allWords.filter((w) => w === text).length == 0) {
+      showError("Нет такого слова");
+      return;
+    }
+
+    // Сохранить это слово в VKStorage
+    bridge.send("VKWebAppStorageSet", {
+      key: STORAGE_KEY_WORDS,
+      value: JSON.stringify([text, ...userWords]),
+    });
+
     setInput("");
     setUserWords((prev) => [text, ...prev]);
   };
@@ -227,8 +378,6 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
 
   return (
     <Panel id={id}>
-      <PanelHeader>Слова из слова</PanelHeader>
-
       <Card mode="shadow" style={{ margin: "10px" }}>
         <Div>
           <Title level="1" className="bigWord">
@@ -239,31 +388,34 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
 
       <Card mode="shadow" style={{ margin: "10px" }}>
         <Div>
-          <Div style={{ textAlign: "center" }}>
+          <Div className="desktopControls">
             <ButtonGroup>
               <Button onClick={btnHintClicked}>Подсказка</Button>
-              <Button onClick={btnNewWordClicked}>Новое слово</Button>
+              <Button onClick={restart}>Новое слово</Button>
               <Button onClick={btnSetBigWordClicked}>Задать своё слово</Button>
             </ButtonGroup>
           </Div>
 
-          <FormLayoutGroup mode="horizontal">
-            <FormItem>
+          <div className="enterWordDiv">
+            <div className="enterWordInput">
               <Input
                 placeholder="Введите слово"
                 required
                 value={input}
                 onInput={(e) => setInput((e.target as HTMLInputElement).value)}></Input>
-            </FormItem>
-
-            <FormItem>
-              <Button onClick={() => btnAddWordClicked(input)}>Добавить</Button>
-            </FormItem>
-          </FormLayoutGroup>
+            </div>
+            <div className="enterWordButton">
+              <Tooltip placement="top" text="Добавить слово">
+                <IconButton label="Добавить слово" onClick={() => btnAddWordClicked(input)}>
+                  <Icon28AddCircleFillBlue />
+                </IconButton>
+              </Tooltip>
+            </div>
+          </div>
         </Div>
       </Card>
 
-      <Card mode="shadow" style={{ height: "45vh", overflowY: "auto", margin: "10px" }}>
+      <Card mode="shadow" className="foundWordsCard">
         {userWords.length == 0 ? (
           <Placeholder>Здесь будут те слова, которые вы придумаете</Placeholder>
         ) : (
@@ -275,7 +427,25 @@ export const Home: FC<HomeProps> = ({ id, words }) => {
         )}
       </Card>
 
-      <FixedLayout vertical="bottom">
+      <FixedLayout vertical="bottom" filled>
+        <SplitLayout>
+          <SplitCol style={{ textAlign: "center" }}>
+            <ButtonGroup className="mobileControls" mode="horizontal">
+              <IconButton onClick={btnHintClicked} className="mobileButton" label="Подсказка">
+                <Icon28LightbulbCircleFillYellow />
+              </IconButton>
+
+              <IconButton onClick={restart} className="mobileButton" label="Новое слово">
+                <Icon28TextLiveCircleFillGreen />
+              </IconButton>
+
+              <IconButton onClick={btnSetBigWordClicked} className="mobileButton" label="Задать своё слово">
+                <Icon28EditCircleFillBlue />
+              </IconButton>
+            </ButtonGroup>
+          </SplitCol>
+        </SplitLayout>
+
         <Footer>
           Найдено слов: {userWords.length}, использовано подсказок: {hintsCount}
         </Footer>
