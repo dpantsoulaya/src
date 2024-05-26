@@ -47,6 +47,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
 
   const STORAGE_KEY_BIGWORD = "big_word";
   const STORAGE_KEY_WORDS = "words";
+  const STORAGE_KEY_HINTS = "hints";
 
   const allWords = words;
   const [bigWord, setBigWord] = useState("");
@@ -64,24 +65,28 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
     bridge.send("VKWebAppInit");
 
     // Загрузить большое слово и придуманные пользователем слова
-    bridge.send("VKWebAppStorageGet", { keys: [STORAGE_KEY_BIGWORD, STORAGE_KEY_WORDS] }).then((data) => {
-      //debugger;
-      if (data.keys) {
-        // Значения получены
-        const readBigWord = data.keys.filter((k) => k.key === STORAGE_KEY_BIGWORD)[0].value;
-        const readUserWords = data.keys.filter((k) => k.key === STORAGE_KEY_WORDS)[0].value;
+    bridge
+      .send("VKWebAppStorageGet", { keys: [STORAGE_KEY_BIGWORD, STORAGE_KEY_WORDS, STORAGE_KEY_HINTS] })
+      .then((data) => {
+        //debugger;
+        if (data.keys) {
+          // Значения получены
+          const readBigWord = data.keys.filter((k) => k.key === STORAGE_KEY_BIGWORD)[0].value;
+          const readUserWords = data.keys.filter((k) => k.key === STORAGE_KEY_WORDS)[0].value;
+          const readHints = data.keys.filter((k) => k.key === STORAGE_KEY_HINTS)[0].value;
 
-        if (readBigWord !== "") {
-          setBigWord(readBigWord);
-          setBigWordDecomposition(createDecomposition(readBigWord));
-          setUserWords(JSON.parse(readUserWords));
+          if (readBigWord !== "") {
+            setBigWord(readBigWord);
+            setBigWordDecomposition(createDecomposition(readBigWord));
+            setUserWords(JSON.parse(readUserWords));
+            setHintsCount(readHints !== "" ? parseInt(readHints) : 0);
+          } else {
+            setNewBigWord();
+          }
         } else {
           setNewBigWord();
         }
-      } else {
-        setNewBigWord();
-      }
-    });
+      });
   }, [words]);
 
   /*********************************************
@@ -114,6 +119,11 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
       return;
     }
 
+    if (!containsOnlyLetters(text)) {
+      showError("Слово должно содержать только русские буквы");
+      return;
+    }
+
     if (text.length < 5) {
       showError("Слово должно быть не менее 5 символов");
       return;
@@ -124,8 +134,8 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
       return;
     }
 
-    if (!containsOnlyLetters(text)) {
-      showError("Слово должно содержать только русские буквы");
+    if (words.filter((w) => w === text).length === 0) {
+      showError("Такого слова не существует");
       return;
     }
 
@@ -137,6 +147,10 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
     bridge.send("VKWebAppStorageSet", {
       key: STORAGE_KEY_WORDS,
       value: JSON.stringify([]),
+    });
+    bridge.send("VKWebAppStorageSet", {
+      key: STORAGE_KEY_HINTS,
+      value: "0",
     });
 
     setBigWord(text);
@@ -295,6 +309,10 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
         key: STORAGE_KEY_WORDS,
         value: JSON.stringify([]),
       });
+      bridge.send("VKWebAppStorageSet", {
+        key: STORAGE_KEY_HINTS,
+        value: "0",
+      });
 
       setBigWord(w);
       setBigWordDecomposition(createDecomposition(w));
@@ -328,6 +346,10 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
         key: STORAGE_KEY_WORDS,
         value: JSON.stringify([w, ...userWords]),
       });
+      bridge.send("VKWebAppStorageSet", {
+        key: STORAGE_KEY_HINTS,
+        value: String(hintsCount + 1),
+      });
 
       setUserWords((prev) => [w, ...prev]);
       setHintsCount((prev) => prev + 1);
@@ -351,6 +373,11 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
       return;
     }
 
+    if (text.length > bigWord.length) {
+      showError("Слово не может быть длиннее исходного");
+      return;
+    }
+
     // Проверить, что такое слово уже было
     if (userWords.includes(text)) {
       showError("Это слово уже было");
@@ -366,6 +393,11 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
     // Проверить, что такое слово вообще есть
     if (allWords.filter((w) => w === text).length == 0) {
       showError("Нет такого слова");
+      return;
+    }
+
+    if (text === bigWord) {
+      showError("Нельзя просто так взять и использовать исходное слово)");
       return;
     }
 
@@ -410,6 +442,7 @@ export const Home: FC<HomeProps> = ({ id, words, setPopout }) => {
                 placeholder="Введите слово"
                 required
                 value={input}
+                maxLength={50}
                 onInput={(e) => setInput((e.target as HTMLInputElement).value)}></Input>
             </div>
             <div className="enterWordButton">
